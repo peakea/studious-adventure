@@ -2,14 +2,29 @@ const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
 const { authenticator } = require('otplib');
+const rateLimit = require('express-rate-limit');
 const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Rate limiting middleware
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.'
+});
+
+const postLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 posts per windowMs
+  message: 'Too many posts from this IP, please try again later.'
+});
+
 // Middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(limiter); // Apply rate limiting to all routes
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -66,7 +81,7 @@ app.get('/topic/:id', (req, res) => {
 });
 
 // Post a new comment
-app.post('/topic/:id/comment', (req, res) => {
+app.post('/topic/:id/comment', postLimiter, (req, res) => {
   const topicId = req.params.id;
   const { author, content, key, file_link, totp_secret } = req.body;
   
@@ -138,7 +153,7 @@ app.post('/topic/:id/comment', (req, res) => {
 });
 
 // Create a new topic
-app.post('/topic', (req, res) => {
+app.post('/topic', postLimiter, (req, res) => {
   const { title } = req.body;
   
   if (!title) {
