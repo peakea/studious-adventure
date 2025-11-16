@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure Forum</title>
+  <%- include('styles') %>
+</head>
+<body>
+  <div class="container">
+    <h1>🔒 Secure Forum</h1>
+    
+    <div class="info-box">
+      <p>
+        <strong>Welcome!</strong> This is a key-based secure forum. Use your secret key to post comments without login sessions.
+      </p>
+    </div>
+
+    <h2>Topics</h2>
+    
+    <% if (topics.length === 0) { %>
+      <p class="empty-state">No topics yet. Create one below!</p>
+    <% } else { %>
+      <ul class="topics-list">
+        <% topics.forEach(topic => { %>
+          <li class="topic-item">
+            <a href="/topic/<%= topic.id %>">
+              <%= topic.title %>
+            </a>
+            <span class="topic-date">
+              <%= new Date(topic.created_at).toLocaleString() %>
+            </span>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+
+    <div class="form-section">
+      <h3>Create New Topic</h3>
+      <form method="POST" action="/topic" class="margin-top">
+        <div class="form-group">
+          <label for="title">
+            Topic Title:
+          </label>
+          <input 
+            type="text" 
+            id="title" 
+            name="title" 
+            required 
+          />
+        </div>
+        <button type="submit" class="button-success">
+          Create Topic
+        </button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
