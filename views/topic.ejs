@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= topic.title %> - Secure Forum</title>
+</head>
+<body style="font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+  <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <div style="margin-bottom: 20px;">
+      <a href="/" style="color: #007bff; text-decoration: none; font-size: 14px;">← Back to Topics</a>
+    </div>
+
+    <h1 style="color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px;">
+      <%= topic.title %>
+    </h1>
+    
+    <p style="color: #6c757d; font-size: 14px; margin-top: 10px;">
+      Created: <%= new Date(topic.created_at).toLocaleString() %>
+    </p>
+
+    <% if (error) { %>
+      <div style="background-color: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0; color: #721c24;">
+        <%= error %>
+      </div>
+    <% } %>
+
+    <% if (success) { %>
+      <div style="background-color: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0; color: #155724;">
+        <%= success %>
+      </div>
+    <% } %>
+
+    <h2 style="color: #555; margin-top: 30px;">Comments</h2>
+    
+    <% if (comments.length === 0) { %>
+      <p style="color: #666; font-style: italic; padding: 20px; background-color: #f8f9fa; border-radius: 5px;">
+        No comments yet. Be the first to comment!
+      </p>
+    <% } else { %>
+      <div style="margin: 20px 0;">
+        <% comments.forEach(comment => { %>
+          <div style="background-color: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 5px; border-left: 4px solid #17a2b8;">
+            <div style="margin-bottom: 10px;">
+              <strong style="color: #007bff; font-size: 16px;"><%= comment.author %></strong>
+              <span style="color: #6c757d; font-size: 13px; margin-left: 10px;">
+                <%= new Date(comment.created_at).toLocaleString() %>
+              </span>
+            </div>
+            
+            <p style="color: #333; margin: 10px 0; line-height: 1.6; white-space: pre-wrap;">
+              <%= comment.content %>
+            </p>
+            
+            <% if (comment.file_link) { %>
+              <div style="background-color: #fff3cd; border: 1px solid #ffc107; padding: 15px; margin-top: 15px; border-radius: 4px;">
+                <div style="margin-bottom: 10px;">
+                  <strong style="color: #856404;">📎 Secure File Link:</strong>
+                </div>
+                <div style="margin-bottom: 10px;">
+                  <a href="<%= comment.file_link %>" target="_blank" style="color: #007bff; word-break: break-all;">
+                    <%= comment.file_link %>
+                  </a>
+                </div>
+                <% if (comment.totp_secret && comment.current_totp) { %>
+                  <div style="background-color: #d1ecf1; border: 1px solid #17a2b8; padding: 10px; margin-top: 10px; border-radius: 4px;">
+                    <strong style="color: #0c5460;">🔐 Current TOTP Code:</strong>
+                    <span style="font-family: 'Courier New', monospace; font-size: 20px; font-weight: bold; color: #0c5460; margin-left: 10px; letter-spacing: 2px;">
+                      <%= comment.current_totp %>
+                    </span>
+                    <div style="color: #0c5460; font-size: 12px; margin-top: 5px;">
+                      (Refreshes every 30 seconds - reload page for new code)
+                    </div>
+                  </div>
+                <% } %>
+              </div>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #dee2e6;">
+      <h3 style="color: #555;">Post a Comment</h3>
+      
+      <div style="background-color: #e7f3ff; border-left: 4px solid #007bff; padding: 15px; margin: 15px 0;">
+        <p style="margin: 0; color: #004085; font-size: 14px;">
+          <strong>Key-based posting:</strong> Your secret key is used for authentication without login sessions. 
+          The key is hashed and never stored in plain text.
+        </p>
+      </div>
+
+      <form method="POST" action="/topic/<%= topic.id %>/comment" style="margin-top: 15px;">
+        <div style="margin-bottom: 15px;">
+          <label for="author" style="display: block; color: #555; font-weight: bold; margin-bottom: 5px;">
+            Author Name: *
+          </label>
+          <input 
+            type="text" 
+            id="author" 
+            name="author" 
+            required 
+            style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; font-size: 16px;"
+          />
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label for="content" style="display: block; color: #555; font-weight: bold; margin-bottom: 5px;">
+            Comment: *
+          </label>
+          <textarea 
+            id="content" 
+            name="content" 
+            required 
+            rows="5"
+            style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; font-size: 16px; resize: vertical;"
+          ></textarea>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label for="key" style="display: block; color: #555; font-weight: bold; margin-bottom: 5px;">
+            Secret Key: *
+          </label>
+          <input 
+            type="password" 
+            id="key" 
+            name="key" 
+            required 
+            style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; font-size: 16px;"
+          />
+          <small style="color: #6c757d; font-size: 13px;">
+            Your secret key for posting (will be hashed, not stored in plain text)
+          </small>
+        </div>
+
+        <div style="background-color: #fff3cd; border: 1px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
+          <h4 style="margin-top: 0; color: #856404;">Optional: Secure File Link</h4>
+          
+          <div style="margin-bottom: 15px;">
+            <label for="file_link" style="display: block; color: #555; font-weight: bold; margin-bottom: 5px;">
+              File Link (e.g., github.com/peakea/securefiles):
+            </label>
+            <input 
+              type="url" 
+              id="file_link" 
+              name="file_link" 
+              placeholder="https://github.com/peakea/securefiles/..."
+              style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; font-size: 16px;"
+            />
+          </div>
+
+          <div style="margin-bottom: 15px;">
+            <label for="totp_secret" style="display: block; color: #555; font-weight: bold; margin-bottom: 5px;">
+              TOTP Secret (Base32):
+            </label>
+            <input 
+              type="text" 
+              id="totp_secret" 
+              name="totp_secret" 
+              placeholder="JBSWY3DPEHPK3PXP"
+              style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; font-size: 16px; font-family: 'Courier New', monospace;"
+            />
+            <small style="color: #6c757d; font-size: 13px;">
+              Base32-encoded TOTP secret for file access verification
+            </small>
+          </div>
+        </div>
+
+        <button 
+          type="submit" 
+          style="background-color: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold;"
+        >
+          Post Comment
+        </button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
