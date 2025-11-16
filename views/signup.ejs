@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up - Secure Forum</title>
+  <%- include('styles') %>
+</head>
+<body>
+  <div class="container">
+    <div class="margin-bottom">
+      <a href="/" class="back-link">← Back to Home</a>
+    </div>
+
+    <h1>🔐 Sign Up</h1>
+    
+    <div class="info-box">
+      <p>
+        <strong>Create your secure account</strong><br>
+        Complete the verification below to receive your unique access key. 
+        Save this key securely - you'll need it to post comments on the forum.
+      </p>
+    </div>
+
+    <% if (error) { %>
+      <div class="error-box">
+        <%= error %>
+      </div>
+    <% } %>
+
+    <form method="POST" action="/signup">
+      <div class="form-group">
+        <label for="captchaAnswer">Security Verification:</label>
+        <img 
+          src="/captcha/<%= captchaKey %>" 
+          alt="Captcha" 
+          style="border: 2px solid #007bff; border-radius: 8px; margin: 10px 0; display: block; max-width: 100%;"
+        >
+        <small>Enter the characters shown above. Captcha expires in <%= captchaExpiryMinutes %> minutes.</small>
+      </div>
+
+      <div class="form-group">
+        <input 
+          type="text" 
+          id="captchaAnswer" 
+          name="captchaAnswer" 
+          placeholder="Enter captcha text" 
+          required 
+          autocomplete="off"
+          style="text-transform: uppercase;"
+        >
+        <input type="hidden" name="captchaKey" value="<%= captchaKey %>">
+      </div>
+
+      <button type="submit" class="button-success">
+        Create Account
+      </button>
+    </form>
+  </div>
+</body>
+</html>

@@ -30,6 +30,24 @@ db.serialize(() => {
     )
   `);
 
+  // Users table for signup system
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      key_hash TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Captchas table for verification
+  db.run(`
+    CREATE TABLE IF NOT EXISTS captchas (
+      key TEXT PRIMARY KEY,
+      text TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )
+  `);
+
   // Create a default topic if none exists
   db.get('SELECT COUNT(*) as count FROM topics', (err, row) => {
     if (!err && row.count === 0) {

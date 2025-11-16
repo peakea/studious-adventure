@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Access Key - Secure Forum</title>
+  <%- include('styles') %>
+</head>
+<body>
+  <div class="container">
+    <h1>✅ Account Created Successfully!</h1>
+    
+    <div class="success-box">
+      <p>
+        <strong>Your account has been created.</strong> Below is your unique access key.
+      </p>
+    </div>
+
+    <div style="background-color: #fff3cd; border: 2px solid #ffc107; padding: 25px; margin: 30px 0; border-radius: 8px;">
+      <label style="display: block; margin-bottom: 10px; font-size: 18px; font-weight: bold; color: #856404;">
+        Your Access Key:
+      </label>
+      <div style="background-color: white; padding: 20px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 24px; font-weight: bold; color: #333; letter-spacing: 2px; word-break: break-all; text-align: center; border: 2px solid #ffc107;">
+        <%= userKey %>
+      </div>
+    </div>
+
+    <div class="error-box" style="background-color: #f8d7da; border-left: 4px solid #dc3545;">
+      <p style="margin: 0; color: #721c24;">
+        <strong>⚠️ Important Security Notice:</strong><br><br>
+        • Save this key in a secure location immediately<br>
+        • This key will not be shown again<br>
+        • You need this key to post comments<br>
+        • Keep it private and secure<br>
+        • Anyone with this key can post as you
+      </p>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px;">
+      <a href="/" style="display: inline-block; background-color: #007bff; color: white; padding: 12px 24px; border-radius: 4px; text-decoration: none; font-weight: bold;">
+        Go to Forum
+      </a>
+    </div>
+  </div>
+</body>
+</html>
