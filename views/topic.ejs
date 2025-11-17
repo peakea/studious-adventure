@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= topic.title %> - Secure Forum
+    </title>
+    <%- include('styles') %>
+</head>
+
+<body>
+    <div class="container">
+        <div class="margin-bottom">
+            <a href="/" class="back-link">← Back to Topics</a>
+        </div>
+
+        <h1>
+            <%= topic.title %>
+        </h1>
+
+        <p class="topic-meta">
+            <% if (topic.author) { %>
+                Created by <a href="/user/<%= topic.author %>"><%= topic.author %></a>
+            <% } else { %>
+                Created
+            <% } %>
+            on <%= new Date(topic.created_at).toLocaleString() %>
+            | <a href="/topic/<%= topic.id %>/delete" class="delete-link">Delete Topic</a>
+        </p>
+
+        <% if (error) { %>
+            <div class="error-box">
+                <%- error %>
+            </div>
+            <% } %>
+
+                <% if (success) { %>
+                    <div class="success-box">
+                        <%= success %>
+                    </div>
+                    <% } %>
+
+                        <h2>Comments</h2>
+
+                        <% if (comments.length===0) { %>
+                            <p class="empty-state-padded">
+                                No comments yet. Be the first to comment!
+                            </p>
+                            <% } else { %>
+                                <div class="comments-container">
+                                    <% comments.forEach(comment=> { %>
+                                        <div class="comment">
+                                            <div class="comment-header">
+                                                <strong class="comment-author">
+                                                    <%= comment.author %>
+                                                </strong>
+                                                <span class="comment-date">
+                                                    <%= new Date(comment.created_at).toLocaleString() %>
+                                                </span>
+                                            </div>
+
+                                            <p class="comment-content">
+                                                <%= comment.content %>
+                                            </p>
+
+                                            <% if (comment.file_link) { %>
+                                                <div class="file-box">
+                                                    <div class="file-link-section">
+                                                        <strong>📎 Secure File Link:</strong>
+                                                    </div>
+                                                    <div class="file-link-section">
+                                                        <a href="<%= comment.file_link %>" target="_blank">
+                                                            <%= comment.file_link %>
+                                                        </a>
+                                                    </div>
+                                                    <% if (comment.totp_secret && comment.current_totp) { %>
+                                                        <div class="totp-box">
+                                                            <strong>🔐 Current TOTP Code:</strong>
+                                                            <span class="totp-code">
+                                                                <%= comment.current_totp %>
+                                                            </span>
+                                                            <div class="totp-hint">
+                                                                (Refreshes every 30 seconds - reload page for new code)
+                                                            </div>
+                                                        </div>
+                                                        <% } %>
+                                                </div>
+                                                <% } %>
+                                        </div>
+                                        <% }) %>
+                                </div>
+                                <% } %>
+
+                                    <div class="form-section">
+                                        <h3>Post a Comment</h3>
+
+                                        <div class="info-box-small">
+                                            <p>
+                                                <strong>Key-based posting:</strong> Your secret key is used for authentication without login sessions.
+                                                The key is hashed and never stored in plain text.
+                                            </p>
+                                        </div>
+
+                                        <form method="POST" action="/topic/<%= topic.id %>/comment" class="margin-top">
+                                            <div class="form-group">
+                                                <label for="content">
+                                                    Comment: *
+                                                </label>
+                                                <textarea id="content" name="content" required rows="5"></textarea>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label for="key">
+                                                    Secret Key: *
+                                                </label>
+                                                <input type="password" id="key" name="key" required />
+                                                <small>
+                                                    Your secret key for posting (will be hashed, not stored in plain text)
+                                                </small>
+                                            </div>
+
+                                            <div class="optional-section">
+                                                <h4>Optional: Secure File Link</h4>
+
+                                                <div class="form-group">
+                                                    <label for="file_link">
+                                                        File Link (e.g., github.com/peakea/securefiles):
+                                                    </label>
+                                                    <input type="url" id="file_link" name="file_link" placeholder="https://github.com/peakea/securefiles/..." />
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label for="totp_secret">
+                                                        TOTP Secret (Base32):
+                                                    </label>
+                                                    <input type="text" id="totp_secret" name="totp_secret" placeholder="JBSWY3DPEHPK3PXP" class="monospace" />
+                                                    <small>
+                                                        Base32-encoded TOTP secret for file access verification
+                                                    </small>
+                                                </div>
+                                            </div>
+
+                                            <button type="submit">
+                                                Post Comment
+                                            </button>
+                                        </form>
+                                    </div>
+    </div>
+</body>
+
+</html>

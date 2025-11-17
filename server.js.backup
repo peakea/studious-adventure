@@ -1,0 +1,803 @@
+const express = require('express');
+const path = require('path');
+const rateLimit = require('express-rate-limit');
+const fs = require('fs');
+require('./db'); // Initialize database
+
+// Load configuration
+function loadConfig() {
+    const CONFIG_FILE = './config.json';
+    const DEFAULT_CONFIG_FILE = './default-config.json';
+
+    if (!fs.existsSync(CONFIG_FILE)) {
+        if (!fs.existsSync(DEFAULT_CONFIG_FILE)) {
+            throw new Error(`Neither ${CONFIG_FILE} nor ${DEFAULT_CONFIG_FILE} found`);
+        }
+        fs.copyFileSync(DEFAULT_CONFIG_FILE, CONFIG_FILE);
+        console.log(`Created ${CONFIG_FILE} from ${DEFAULT_CONFIG_FILE}`);
+    }
+
+    return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+}
+
+const config = loadConfig();
+const captchaService = require('./services/captchaService')(config.captcha);
+
+const app = express();
+const PORT = process.env.PORT || config.server.port;
+const PAGE_SIZE = config.pagination.pageSize;
+
+// Rate limiting middleware
+const limiter = rateLimit({
+    windowMs: config.rateLimit.general.windowMs,
+    max: config.rateLimit.general.max,
+    message: config.rateLimit.general.message
+});
+
+// Middleware
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(limiter); // Apply rate limiting to all routes
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+// Routes
+const homeRoutes = require('./routes/home')(captchaService, PAGE_SIZE);
+const userRoutes = require('./routes/user')(captchaService, PAGE_SIZE);
+const topicRoutes = require('./routes/topic')(captchaService);
+const commentRoutes = require('./routes/comment')();
+const captchaRoutes = require('./routes/captcha')(captchaService);
+
+app.use('/', homeRoutes);
+app.use('/', userRoutes);
+app.use('/', topicRoutes);
+app.use('/', commentRoutes);
+app.use('/', captchaRoutes);
+
+// Start server
+app.listen(PORT, config.server.host, () => {
+    try {
+        const captcha = await captchaService.generate();
+        captchaService.createCaptcha(captcha.key, captcha.text, captcha.createdAt, (err) => {
+            if (err) {
+                console.error('Error creating captcha:', err);
+            }
+
+            const currentPage = 1;
+            const offset = (currentPage - 1) * PAGE_SIZE;
+
+            getTotalTopicCount((err, row) => {
+                if (err) {
+                    return res.status(500).render('error', {
+                        statusCode: 500,
+                        message: 'Database error',
+                        details: 'Unable to retrieve topic count. Please try again later.'
+                    });
+                }
+
+                const totalTopics = row.count;
+                const totalPages = Math.ceil(totalTopics / PAGE_SIZE);
+
+                db.all(
+                    'SELECT * FROM topics ORDER BY created_at DESC LIMIT ? OFFSET ?',
+                    [PAGE_SIZE, offset],
+                    (err, topics) => {
+                        if (err) {
+                            return res.status(500).render('error', {
+                                statusCode: 500,
+                                message: 'Database error',
+                                details: 'Unable to retrieve topics. Please try again later.'
+                            });
+                        }
+                        res.render('index', {
+                            topics,
+                            captchaKey: captcha.key,
+                            captchaExpiryMinutes: captchaService.getExpiryMinutes(),
+                            currentPage,
+                            totalPages
+                        });
+                    }
+                );
+            });
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).render('error', {
+            statusCode: 500,
+            message: 'Error loading page',
+            details: 'An unexpected error occurred. Please try again later.'
+        });
+    }
+});
+
+// Paginated home page
+app.get('/page/:page', async (req, res) => {
+    try {
+        const currentPage = parseInt(req.params.page) || 1;
+        if (currentPage < 1) {
+            return res.redirect('/');
+        }
+
+        const captcha = await captchaService.generate();
+        captchaService.createCaptcha(captcha.key, captcha.text, captcha.createdAt, (err) => {
+            if (err) {
+                console.error('Error creating captcha:', err);
+            }
+
+            const offset = (currentPage - 1) * PAGE_SIZE;
+
+            getTotalTopicCount((err, row) => {
+                if (err) {
+                    return res.status(500).render('error', {
+                        statusCode: 500,
+                        message: 'Database error',
+                        details: 'Unable to retrieve topic count. Please try again later.'
+                    });
+                }
+
+                const totalTopics = row.count;
+                const totalPages = Math.ceil(totalTopics / PAGE_SIZE);
+
+                if (currentPage > totalPages && totalPages > 0) {
+                    return res.redirect(`/page/${totalPages}`);
+                }
+
+                db.all(
+                    'SELECT * FROM topics ORDER BY created_at DESC LIMIT ? OFFSET ?',
+                    [PAGE_SIZE, offset],
+                    (err, topics) => {
+                        if (err) {
+                            return res.status(500).render('error', {
+                                statusCode: 500,
+                                message: 'Database error',
+                                details: 'Unable to retrieve topics. Please try again later.'
+                            });
+                        }
+                        res.render('index', {
+                            topics,
+                            captchaKey: captcha.key,
+                            captchaExpiryMinutes: captchaService.getExpiryMinutes(),
+                            currentPage,
+                            totalPages
+                        });
+                    }
+                );
+            });
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).render('error', {
+            statusCode: 500,
+            message: 'Error loading page',
+            details: 'An unexpected error occurred. Please try again later.'
+        });
+    }
+});
+
+// View topics by user
+app.get('/user/:authorName', async (req, res) => {
+    try {
+        const authorName = req.params.authorName;
+        const currentPage = 1;
+        const offset = (currentPage - 1) * PAGE_SIZE;
+
+        getTotalTopicCountByAuthor(authorName, (err, row) => {
+            if (err) {
+                return res.status(500).render('error', {
+                    statusCode: 500,
+                    message: 'Database error',
+                    details: 'Unable to retrieve topic count for this user. Please try again later.'
+                });
+            }
+
+            const totalTopics = row.count;
+            const totalPages = Math.ceil(totalTopics / PAGE_SIZE);
+
+            db.all(
+                'SELECT * FROM topics WHERE author = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+                [authorName, PAGE_SIZE, offset],
+                (err, topics) => {
+                    if (err) {
+                        return res.status(500).render('error', {
+                            statusCode: 500,
+                            message: 'Database error',
+                            details: 'Unable to retrieve topics for this user. Please try again later.'
+                        });
+                    }
+                    res.render('user-topics', {
+                        topics,
+                        authorName,
+                        currentPage,
+                        totalPages
+                    });
+                }
+            );
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).render('error', {
+            statusCode: 500,
+            message: 'Error loading user topics',
+            details: 'An unexpected error occurred. Please try again later.'
+        });
+    }
+});
+
+// Paginated user topics
+app.get('/user/:authorName/page/:page', async (req, res) => {
+    try {
+        const authorName = req.params.authorName;
+        const currentPage = parseInt(req.params.page) || 1;
+        if (currentPage < 1) {
+            return res.redirect(`/user/${authorName}`);
+        }
+
+        const offset = (currentPage - 1) * PAGE_SIZE;
+
+        getTotalTopicCountByAuthor(authorName, (err, row) => {
+            if (err) {
+                return res.status(500).render('error', {
+                    statusCode: 500,
+                    message: 'Database error',
+                    details: 'Unable to retrieve topic count for this user. Please try again later.'
+                });
+            }
+
+            const totalTopics = row.count;
+            const totalPages = Math.ceil(totalTopics / PAGE_SIZE);
+
+            if (currentPage > totalPages && totalPages > 0) {
+                return res.redirect(`/user/${authorName}/page/${totalPages}`);
+            }
+
+            db.all(
+                'SELECT * FROM topics WHERE author = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+                [authorName, PAGE_SIZE, offset],
+                (err, topics) => {
+                    if (err) {
+                        return res.status(500).render('error', {
+                            statusCode: 500,
+                            message: 'Database error',
+                            details: 'Unable to retrieve topics for this user. Please try again later.'
+                        });
+                    }
+                    res.render('user-topics', {
+                        topics,
+                        authorName,
+                        currentPage,
+                        totalPages
+                    });
+                }
+            );
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).render('error', {
+            statusCode: 500,
+            message: 'Error loading user topics',
+            details: 'An unexpected error occurred. Please try again later.'
+        });
+    }
+});
+
+// Sign up page - show captcha
+app.get('/signup', async (req, res) => {
+    try {
+        const captcha = await captchaService.generate();
+        captchaService.createCaptcha(captcha.key, captcha.text, captcha.createdAt, (err) => {
+            if (err) {
+                return res.status(500).render('error', {
+                    statusCode: 500,
+                    message: 'Error generating captcha',
+                    details: 'Unable to generate captcha. Please try again later.'
+                });
+            }
+            res.render('signup', {
+                captchaKey: captcha.key,
+                captchaExpiryMinutes: captchaService.getExpiryMinutes(),
+                error: null
+            });
+        });
+    } catch (error) {
+        res.status(500).render('error', {
+            statusCode: 500,
+            message: 'Error loading signup page',
+            details: 'An unexpected error occurred. Please try again later.'
+        });
+    }
+});
+
+// Process signup
+app.post('/signup', async (req, res) => {
+    try {
+        const { authorName, captchaKey, captchaAnswer } = req.body;
+
+        // Validate author name
+        if (!authorName || authorName.trim().length < 3) {
+            const captcha = await captchaService.generate();
+            captchaService.createCaptcha(captcha.key, captcha.text, captcha.createdAt, (err) => {
+                res.render('signup', {
+                    captchaKey: captcha.key,
+                    captchaExpiryMinutes: captchaService.getExpiryMinutes(),
+                    error: 'Author name must be at least 3 characters'
+                });
+            });
+            return;
+        }
+
+        // Verify captcha exists
+        if (!captchaKey || !captchaAnswer) {
+            const captcha = await captchaService.generate();
+            captchaService.createCaptcha(captcha.key, captcha.text, captcha.createdAt, (err) => {
+                res.render('signup', {
+                    captchaKey: captcha.key,
+                    captchaExpiryMinutes: captchaService.getExpiryMinutes(),
+                    error: 'Please complete the captcha verification'
+                });
+            });
+            return;
+        }
+
+        // Find and verify captcha
+        captchaService.findCaptchaByKey(captchaKey, async (err, storedCaptcha) => {
+            if (err || !storedCaptcha) {
+                const captcha = await captchaService.generate();
+                captchaService.createCaptcha(captcha.key, captcha.text, captcha.createdAt, () => {
+                    res.render('signup', {
+                        captchaKey: captcha.key,
+                        captchaExpiryMinutes: captchaService.getExpiryMinutes(),
+                        error: 'Captcha not found or already used. Please try again.'
+                    });
+                });
+                return;
+            }
+
+            // Check if expired
+            if (captchaService.isExpired(storedCaptcha.created_at)) {
+                captchaService.deleteCaptcha(captchaKey, async () => {
+                    const captcha = await captchaService.generate();
+                    captchaService.createCaptcha(captcha.key, captcha.text, captcha.createdAt, () => {
+                        res.render('signup', {
+                            captchaKey: captcha.key,
+                            captchaExpiryMinutes: captchaService.getExpiryMinutes(),
+                            error: 'Captcha expired. Please try again.'
+                        });
+                    });
+                });
+                return;
+            }
+
+            // Verify answer
+            if (!captchaService.verify(captchaAnswer, storedCaptcha.text)) {
+                captchaService.deleteCaptcha(captchaKey, async () => {
+                    const captcha = await captchaService.generate();
+                    captchaService.createCaptcha(captcha.key, captcha.text, captcha.createdAt, () => {
+                        res.render('signup', {
+                            captchaKey: captcha.key,
+                            captchaExpiryMinutes: captchaService.getExpiryMinutes(),
+                            error: 'Incorrect captcha. Please try again.'
+                        });
+                    });
+                });
+                return;
+            }
+
+            // Delete used captcha
+            captchaService.deleteCaptcha(captchaKey, () => {
+                // Check if author name is already taken
+                db.get('SELECT * FROM users WHERE author_name = ?', [authorName.trim()], (err, existingUser) => {
+                    if (err) {
+                        return res.status(500).render('error', {
+                            statusCode: 500,
+                            message: 'Database error',
+                            details: 'Unable to check username availability. Please try again later.'
+                        });
+                    }
+
+                    if (existingUser) {
+                        // Author name already exists
+                        captchaService.generate().then(captcha => {
+                            captchaService.createCaptcha(captcha.key, captcha.text, captcha.createdAt, () => {
+                                res.render('signup', {
+                                    captchaKey: captcha.key,
+                                    captchaExpiryMinutes: captchaService.getExpiryMinutes(),
+                                    error: 'Author name already taken. Please choose a different name.'
+                                });
+                            });
+                        });
+                        return;
+                    }
+
+                    // Generate user key
+                    const userId = uuidv4();
+                    const userKey = crypto.randomBytes(16).toString('hex');
+                    const keyHash = hashKey(userKey);
+
+                    // Save to database
+                    db.run(
+                        'INSERT INTO users (id, author_name, key_hash) VALUES (?, ?, ?)',
+                        [userId, authorName.trim(), keyHash],
+                        function (err) {
+                            if (err) {
+                                console.error('Error creating user:', err);
+                                return res.status(500).render('error', {
+                                    statusCode: 500,
+                                    message: 'Error creating user',
+                                    details: 'Unable to create your account. Please try again later.'
+                                });
+                            }
+                            res.render('signup-success', { userKey, authorName: authorName.trim() });
+                        }
+                    );
+                });
+            });
+        });
+    } catch (error) {
+        console.error('Signup error:', error);
+        res.status(500).render('error', {
+            statusCode: 500,
+            message: 'Error processing signup',
+            details: 'An unexpected error occurred. Please try again later.'
+        });
+    }
+});
+
+// Serve captcha image
+app.get('/captcha/:key', (req, res) => {
+    const { key } = req.params;
+
+    captchaService.findCaptchaByKey(key, (err, captcha) => {
+        if (err || !captcha) {
+            return res.status(404).render('error', {
+                statusCode: 404,
+                message: 'Captcha not found or expired',
+                details: 'The captcha you requested is no longer available. Please go back and refresh the page.'
+            });
+        }
+
+        if (captchaService.isExpired(captcha.created_at)) {
+            captchaService.deleteCaptcha(key, () => {
+                res.status(404).render('error', {
+                    statusCode: 404,
+                    message: 'Captcha expired',
+                    details: 'The captcha has expired. Please go back and refresh the page to get a new one.'
+                });
+            });
+            return;
+        }
+
+        try {
+            const buffer = captchaService.generateImage(captcha.text);
+            res.setHeader('Content-Type', 'image/png');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            res.send(buffer);
+        } catch (error) {
+            console.error('Error generating captcha image:', error);
+            res.status(500).render('error', {
+                statusCode: 500,
+                message: 'Error generating captcha image',
+                details: 'Unable to generate captcha image. Please try again later.'
+            });
+        }
+    });
+});
+
+// Delete topic form
+app.get('/topic/:id/delete', (req, res) => {
+    const topicId = req.params.id;
+
+    db.get('SELECT * FROM topics WHERE id = ?', [topicId], (err, topic) => {
+        if (err || !topic) {
+            return res.status(404).render('error', {
+                statusCode: 404,
+                message: 'Topic not found',
+                details: 'The topic you are trying to delete does not exist.'
+            });
+        }
+        res.render('delete-topic', { topic, error: null });
+    });
+});
+
+// Delete topic
+app.post('/topic/:id/delete', (req, res) => {
+    const topicId = req.params.id;
+    const { key } = req.body;
+
+    if (!key) {
+        return db.get('SELECT * FROM topics WHERE id = ?', [topicId], (err, topic) => {
+            if (err || !topic) {
+                return res.status(404).render('error', {
+                    statusCode: 404,
+                    message: 'Topic not found',
+                    details: 'The topic you are trying to delete does not exist.'
+                });
+            }
+            res.render('delete-topic', { topic, error: 'Key is required' });
+        });
+    }
+
+    const keyHash = hashKey(key);
+
+    // Get the topic to verify ownership
+    db.get('SELECT * FROM topics WHERE id = ?', [topicId], (err, topic) => {
+        if (err || !topic) {
+            return res.status(404).render('error', {
+                statusCode: 404,
+                message: 'Topic not found',
+                details: 'The topic you are trying to delete does not exist.'
+            });
+        }
+
+        // Verify the key matches the topic creator's key
+        if (topic.key_hash !== keyHash) {
+            return res.render('delete-topic', {
+                topic,
+                error: 'Invalid key. Only the topic creator can delete this topic.'
+            });
+        }
+
+        // Delete all comments associated with the topic
+        db.run('DELETE FROM comments WHERE topic_id = ?', [topicId], (err) => {
+            if (err) {
+                console.error('Error deleting comments:', err);
+                return res.status(500).render('error', {
+                    statusCode: 500,
+                    message: 'Error deleting topic',
+                    details: 'Unable to delete comments. Please try again later.'
+                });
+            }
+
+            // Delete the topic
+            db.run('DELETE FROM topics WHERE id = ?', [topicId], (err) => {
+                if (err) {
+                    console.error('Error deleting topic:', err);
+                    return res.status(500).render('error', {
+                        statusCode: 500,
+                        message: 'Error deleting topic',
+                        details: 'Unable to delete the topic. Please try again later.'
+                    });
+                }
+
+                res.redirect('/?deleted=true');
+            });
+        });
+    });
+});
+
+// View a specific topic with its comments
+app.get('/topic/:id', (req, res) => {
+    const topicId = req.params.id;
+
+    db.get('SELECT * FROM topics WHERE id = ?', [topicId], (err, topic) => {
+        if (err || !topic) {
+            return res.status(404).render('error', {
+                statusCode: 404,
+                message: 'Topic not found',
+                details: 'The topic you are looking for does not exist.'
+            });
+        }
+
+        db.all(
+            'SELECT * FROM comments WHERE topic_id = ? ORDER BY created_at ASC',
+            [topicId],
+            (err, comments) => {
+                if (err) {
+                    return res.status(500).render('error', {
+                        statusCode: 500,
+                        message: 'Database error',
+                        details: 'Unable to retrieve comments. Please try again later.'
+                    });
+                }
+
+                // Generate current TOTP codes for comments with secrets
+                comments = comments.map(comment => {
+                    if (comment.totp_secret) {
+                        try {
+                            comment.current_totp = authenticator.generate(comment.totp_secret);
+                        } catch (e) {
+                            comment.current_totp = 'Invalid secret';
+                        }
+                    }
+                    return comment;
+                });
+
+                res.render('topic', { topic, comments, error: null, success: null });
+            }
+        );
+    });
+});
+
+// Post a new comment
+app.post('/topic/:id/comment', (req, res) => {
+    const topicId = req.params.id;
+    const { content, key, file_link, totp_secret } = req.body;
+
+    // Validate required fields
+    if (!content || !key) {
+        return db.get('SELECT * FROM topics WHERE id = ?', [topicId], (err, topic) => {
+            if (err || !topic) {
+                return res.status(404).render('error', {
+                    statusCode: 404,
+                    message: 'Topic not found',
+                    details: 'The topic you are trying to comment on does not exist.'
+                });
+            }
+            db.all(
+                'SELECT * FROM comments WHERE topic_id = ? ORDER BY created_at ASC',
+                [topicId],
+                (err, comments) => {
+                    res.render('topic', {
+                        topic,
+                        comments: comments || [],
+                        error: 'Content and key are required',
+                        success: null
+                    });
+                }
+            );
+        });
+    }
+
+    // Hash the key
+    const keyHash = hashKey(key);
+
+    // Verify the key exists in the users table and get author name
+    db.get('SELECT * FROM users WHERE key_hash = ?', [keyHash], (err, user) => {
+        if (err) {
+            return res.status(500).render('error', {
+                statusCode: 500,
+                message: 'Database error',
+                details: 'Unable to verify your key. Please try again later.'
+            });
+        }
+
+        if (!user) {
+            return db.get('SELECT * FROM topics WHERE id = ?', [topicId], (err, topic) => {
+                if (err || !topic) {
+                    return res.status(404).render('error', {
+                        statusCode: 404,
+                        message: 'Topic not found',
+                        details: 'The topic you are trying to comment on does not exist.'
+                    });
+                }
+                db.all(
+                    'SELECT * FROM comments WHERE topic_id = ? ORDER BY created_at ASC',
+                    [topicId],
+                    (err, comments) => {
+                        res.render('topic', {
+                            topic,
+                            comments: comments || [],
+                            error: 'Invalid key. Please <a href="/signup">sign up</a> first to get a valid key.',
+                            success: null
+                        });
+                    }
+                );
+            });
+        }
+
+        // Get author name from user record
+        const author = user.author_name;
+
+        // Validate TOTP secret if provided
+        let validatedSecret = null;
+        if (totp_secret) {
+            try {
+                // Test if the secret is valid by trying to generate a token
+                authenticator.generate(totp_secret);
+                validatedSecret = totp_secret;
+            } catch (e) {
+                return db.get('SELECT * FROM topics WHERE id = ?', [topicId], (err, topic) => {
+                    if (err || !topic) {
+                        return res.status(404).render('error', {
+                            statusCode: 404,
+                            message: 'Topic not found',
+                            details: 'The topic you are trying to comment on does not exist.'
+                        });
+                    }
+                    db.all(
+                        'SELECT * FROM comments WHERE topic_id = ? ORDER BY created_at ASC',
+                        [topicId],
+                        (err, comments) => {
+                            res.render('topic', {
+                                topic,
+                                comments: comments || [],
+                                error: 'Invalid TOTP secret format',
+                                success: null
+                            });
+                        }
+                    );
+                });
+            }
+        }
+
+        // Insert comment
+        const commentId = uuidv4();
+        db.run(
+            'INSERT INTO comments (id, topic_id, author, content, key_hash, file_link, totp_secret) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [commentId, topicId, author, content, keyHash, file_link || null, validatedSecret],
+            function (err) {
+                if (err) {
+                    return res.status(500).render('error', {
+                        statusCode: 500,
+                        message: 'Error posting comment',
+                        details: 'Unable to save your comment. Please try again later.'
+                    });
+                }
+
+                // Redirect back to topic page
+                res.redirect(`/topic/${topicId}`);
+            }
+        );
+    });
+});
+
+// Create a new topic
+app.post('/topic', async (req, res) => {
+    try {
+        const { title, key, captchaKey, captchaAnswer } = req.body;
+
+        if (!title || !key) {
+            return res.redirect('/');
+        }
+
+        // Verify captcha
+        if (!captchaKey || !captchaAnswer) {
+            return res.redirect('/');
+        }
+
+        // Hash the key and verify user
+        const keyHash = hashKey(key);
+
+        db.get('SELECT * FROM users WHERE key_hash = ?', [keyHash], (err, user) => {
+            if (err) {
+                return res.status(500).render('error', {
+                    statusCode: 500,
+                    message: 'Database error',
+                    details: 'Unable to verify your key. Please try again later.'
+                });
+            }
+
+            if (!user) {
+                // Invalid key - redirect back
+                return res.redirect('/');
+            }
+
+            captchaService.findCaptchaByKey(captchaKey, async (err, storedCaptcha) => {
+                if (err || !storedCaptcha || captchaService.isExpired(storedCaptcha.created_at) ||
+                    !captchaService.verify(captchaAnswer, storedCaptcha.text)) {
+                    captchaService.deleteCaptcha(captchaKey, () => { });
+                    return res.redirect('/');
+                }
+
+                // Delete used captcha
+                captchaService.deleteCaptcha(captchaKey, () => { });
+
+                // Create topic with author and key_hash
+                const topicId = uuidv4();
+                const author = user.author_name;
+                db.run(
+                    'INSERT INTO topics (id, title, author, key_hash) VALUES (?, ?, ?, ?)',
+                    [topicId, title, author, keyHash],
+                    function (err) {
+                        if (err) {
+                            return res.status(500).render('error', {
+                                statusCode: 500,
+                                message: 'Error creating topic',
+                                details: 'Unable to create your topic. Please try again later.'
+                            });
+                        }
+                        res.redirect(`/topic/${topicId}`);
+                    }
+                );
+            });
+        });
+    } catch (error) {
+        console.error('Topic creation error:', error);
+        res.redirect('/');
+    }
+});
+
+app.listen(PORT, config.server.host, () => {
+    console.log(`${config.site.title} running on http://${config.server.host}:${PORT}`);
+});

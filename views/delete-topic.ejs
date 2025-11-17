@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Topic - Secure Forum</title>
+    <%- include('styles') %>
+</head>
+
+<body>
+    <div class="container">
+        <div class="margin-bottom">
+            <a href="/topic/<%= topic.id %>" class="back-link">← Back to Topic</a>
+        </div>
+
+        <h1>Delete Topic</h1>
+
+        <div class="warning-box">
+            <p><strong>⚠️ Warning:</strong> You are about to delete this topic and all its comments. This action cannot be undone.</p>
+        </div>
+
+        <div class="topic-preview">
+            <h2><%= topic.title %></h2>
+            <p class="topic-meta">
+                <% if (topic.author) { %>
+                    Created by <%= topic.author %>
+                <% } %>
+                on <%= new Date(topic.created_at).toLocaleString() %>
+            </p>
+        </div>
+
+        <% if (error) { %>
+            <div class="error-box">
+                <%= error %>
+            </div>
+        <% } %>
+
+        <div class="form-section">
+            <h3>Confirm Deletion</h3>
+            <p>Enter your secret key to confirm that you are the owner of this topic.</p>
+
+            <form method="POST" action="/topic/<%= topic.id %>/delete" class="margin-top">
+                <div class="form-group">
+                    <label for="key">
+                        Secret Key: *
+                    </label>
+                    <input type="password" id="key" name="key" required />
+                    <small>
+                        Only the topic creator can delete this topic
+                    </small>
+                </div>
+
+                <button type="submit" class="button-danger">
+                    Delete Topic
+                </button>
+                <a href="/topic/<%= topic.id %>" class="button-secondary">
+                    Cancel
+                </a>
+            </form>
+        </div>
+    </div>
+</body>
+
+</html>

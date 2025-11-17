@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= statusCode %> Error - Secure Forum</title>
+    <%- include('styles') %>
+</head>
+
+<body>
+    <div class="container">
+        <div class="margin-bottom">
+            <a href="/" class="back-link">← Back to Home</a>
+        </div>
+
+        <h1>⚠️ Error <%= statusCode %></h1>
+
+        <div class="error-box">
+            <p><strong><%= message %></strong></p>
+        </div>
+
+        <% if (details) { %>
+            <p><%= details %></p>
+        <% } %>
+
+        <div class="margin-top">
+            <a href="/" class="btn-link">Return to Home</a>
+        </div>
+    </div>
+</body>
+
+</html>

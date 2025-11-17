@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Key - Secure Forum</title>
+    <%- include('styles') %>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎉 Your Secure Key</h1>
+
+        <div class="success-box">
+            <strong>Key generated successfully!</strong> Please save this key securely.
+        </div>
+
+        <div class="info-box">
+            <p class="key-info-text">
+                <strong>Your Author Name:</strong>
+                <%= authorName %>
+            </p>
+            <p class="key-info-text">
+                <strong>Your Secret Key:</strong>
+            </p>
+            <div class="key-display">
+                <code>
+          <%= userKey %>
+        </code>
+            </div>
+            <p class="warning-text">
+                ⚠️ <strong>Important:</strong> Copy and save this key now. You will need it to post comments and create topics.
+                This key will not be shown again.
+            </p>
+        </div>
+
+        <div class="center-buttons">
+            <a href="/" class="btn-link">
+                Go to Forum
+            </a>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - Secure Forum</title>
+    <%- include('styles') %>
+</head>
+
+<body>
+    <div class="container">
+        <div class="margin-bottom">
+            <a href="/" class="back-link">← Back to Home</a>
+        </div>
+
+        <h1>Sign Up</h1>
+
+        <div class="info-box">
+            <p>
+                <strong>Key-Based Authentication:</strong> Generate a secure key to post on the forum.
+                No passwords, no email required. Keep your key safe!
+            </p>
+        </div>
+
+        <% if (error) { %>
+            <div class="error-box">
+                <%= error %>
+            </div>
+            <% } %>
+
+                <form method="POST" action="/signup">
+                    <div class="form-group">
+                        <label for="authorName">
+                            Author Name: *
+                        </label>
+                        <input type="text" id="authorName" name="authorName" placeholder="Choose your unique author name" required minlength="3" maxlength="50" />
+                        <small>This will be displayed on all your posts. Must be unique.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="captchaAnswer">Security Verification:</label>
+                        <img src="/captcha/<%= captchaKey %>" alt="Captcha" class="captcha-image">
+                        <small>Enter the characters shown above. Captcha expires in <%= captchaExpiryMinutes %> minutes.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="captchaAnswer" name="captchaAnswer" placeholder="Enter captcha text" required autocomplete="off">
+                        <input type="hidden" name="captchaKey" value="<%= captchaKey %>">
+                    </div>
+
+                    <button type="submit">Generate My Key</button>
+                </form>
+    </div>
+</body>
+
+</html>

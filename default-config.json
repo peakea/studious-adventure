@@ -1,0 +1,47 @@
+{
+    "server": {
+        "port": 3000,
+        "host": "0.0.0.0"
+    },
+    "site": {
+        "title": "Studious Adventure Forum",
+        "description": "A simple forum with key-based authentication",
+        "registrationOpen": true,
+        "maintenanceMode": false,
+        "maintenanceMessage": "The forum is currently undergoing maintenance. Please check back later."
+    },
+    "database": {
+        "dbFile": "forum.db"
+    },
+    "pagination": {
+        "pageSize": 10
+    },
+    "rateLimit": {
+        "general": {
+            "windowMs": 900000,
+            "max": 100,
+            "message": "Too many requests from this IP, please try again later."
+        }
+    },
+    "captcha": {
+        "expiryMs": 300000,
+        "cleanupIntervalMs": 600000,
+        "characters": 6,
+        "font": "Arial",
+        "size": 60,
+        "width": 350,
+        "height": 150,
+        "colors": [
+            "#ff6b6b",
+            "#4ecdc4",
+            "#45b7d1",
+            "#96ceb4",
+            "#ffeaa7",
+            "#a29bfe",
+            "#fd79a8",
+            "#fdcb6e"
+        ],
+        "traceColor": "#2d3436",
+        "traceSize": 3
+    }
+}

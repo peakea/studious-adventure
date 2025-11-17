@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Forum</title>
+    <%- include('styles') %>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔒 Secure Forum</h1>
+
+        <div class="info-box">
+            <p>
+                <strong>Welcome!</strong> This is a key-based secure forum. Use your secret key to post comments without login sessions.
+            </p>
+        </div>
+
+        <div class="signup-link-container">
+            <% if (typeof registrationOpen !== 'undefined' && !registrationOpen) { %>
+                <div class="notice-box warning">
+                    ⚠️ <strong>Registration Closed:</strong> New user registration is currently disabled.
+                </div>
+            <% } else { %>
+                <a href="/signup" class="signup-link">
+                    🔑 Sign Up to Get Your Key
+                </a>
+            <% } %>
+        </div>
+
+        <h2>Topics</h2>
+
+        <% if (topics.length===0) { %>
+            <p class="empty-state">No topics yet. Create one below!</p>
+            <% } else { %>
+                <ul class="topics-list">
+                    <% topics.forEach(topic=> { %>
+                        <li class="topic-item">
+                            <a href="/topic/<%= topic.id %>">
+                                <%= topic.title %>
+                            </a>
+                            <% if (topic.author) { %>
+                                <span class="topic-author">
+                                    by <a href="/user/<%= topic.author %>"><%= topic.author %></a>
+                                </span>
+                            <% } %>
+                            <span class="topic-date">
+                                <%= new Date(topic.created_at).toLocaleString() %>
+                            </span>
+                        </li>
+                        <% }) %>
+                </ul>
+
+                <% if (totalPages > 1) { %>
+                    <div class="pagination">
+                        <% for (let i = 1; i <= totalPages; i++) { %>
+                            <% if (i === currentPage) { %>
+                                <span class="page-current"><%= i %></span>
+                            <% } else { %>
+                                <a href="<%= i === 1 ? '/' : '/page/' + i %>" class="page-link"><%= i %></a>
+                            <% } %>
+                        <% } %>
+                    </div>
+                <% } %>
+            <% } %>
+
+                    <div class="form-section">
+                        <h3>Create New Topic</h3>
+                        <form method="POST" action="/topic" class="margin-top">
+                            <div class="form-group">
+                                <label for="title">
+                                    Topic Title:
+                                </label>
+                                <input type="text" id="title" name="title" required />
+                            </div>
+
+                            <div class="form-group">
+                                <label for="topicKey">
+                                    Secret Key: *
+                                </label>
+                                <input type="password" id="topicKey" name="key" required />
+                                <small>
+                                    Your secret key to create a topic
+                                </small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="captchaAnswerTopic">Security Verification:</label>
+                                <img src="/captcha/<%= captchaKey %>" alt="Captcha" class="captcha-image">
+                                <small>Enter the characters shown above. Captcha expires in <%= captchaExpiryMinutes %> minutes.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <input type="text" id="captchaAnswerTopic" name="captchaAnswer" placeholder="Enter captcha text" required autocomplete="off">
+                                <input type="hidden" name="captchaKey" value="<%= captchaKey %>">
+                            </div>
+
+                            <button type="submit" class="button-success">
+                                Create Topic
+                            </button>
+                        </form>
+                    </div>
+    </div>
+</body>
+
+</html>

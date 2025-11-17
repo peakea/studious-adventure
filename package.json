@@ -1,0 +1,43 @@
+{
+    "name": "studious-adventure",
+    "version": "1.0.0",
+    "description": "A secure forum",
+    "type": "module",
+    "main": "server.js",
+    "bin": {
+        "studious-adventure": "./cli.js"
+    },
+    "scripts": {
+        "start": "node cli.js start",
+        "dev": "node server.js",
+        "init": "node cli.js init",
+        "config": "node cli.js config",
+        "captcha:stats": "node captcha-util.js stats",
+        "captcha:clean": "node captcha-util.js clean",
+        "captcha:list": "node captcha-util.js list",
+        "captcha:clear": "node captcha-util.js clear",
+        "site:status": "node site-config.js status",
+        "site:registration:open": "node site-config.js registration:open",
+        "site:registration:close": "node site-config.js registration:close",
+        "site:maintenance:on": "node site-config.js maintenance:on",
+        "site:maintenance:off": "node site-config.js maintenance:off"
+    },
+    "keywords": [
+        "forum",
+        "secure",
+        "totp"
+    ],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "canvas": "^3.2.0",
+        "commander": "^14.0.2",
+        "ejs": "^3.1.9",
+        "express": "^4.18.2",
+        "express-rate-limit": "^8.2.1",
+        "otplib": "^12.0.1",
+        "speakeasy": "^2.0.0",
+        "sqlite3": "^5.1.6",
+        "uuid": "^13.0.0"
+    }
+}
